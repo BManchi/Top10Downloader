@@ -6,12 +6,24 @@ import android.os.AsyncTask
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
-import java.io.IOException
-import java.lang.StringBuilder
-import java.net.HttpURLConnection
-import java.net.MalformedURLException
 import java.net.URL
 
+class FeedEntry {
+    var name: String = ""
+    var artist: String = ""
+    var releaseDate: String =""
+    var summary: String = ""
+    var imageURL: String = ""
+
+    override fun toString(): String {
+        return """
+            name = " $name
+            artist = $artist
+            releaseDate = $releaseDate
+            imageURL = $imageURL
+        """.trimIndent()
+    }
+}
 class MainActivity : AppCompatActivity() {
     private val TAG = "MainActivity"
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,7 +32,7 @@ class MainActivity : AppCompatActivity() {
 
         Log.d(TAG, "onCreate called")
         val downloadData = DownloadData()
-        downloadData.execute("http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topsongs/limit=10/xml")
+        downloadData.execute("http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topfreeapplications/limit=10/xml")
         Log.d(TAG, "onCreate done")
     }
 
@@ -77,13 +89,15 @@ class MainActivity : AppCompatActivity() {
              *
              * @see .onCancelled
              */
-            override fun onPostExecute(result: String?) {
+            override fun onPostExecute(result: String) {
                 super.onPostExecute(result)
-                Log.d(TAG, "onPostExcecute parameter is $result")
+//                Log.d(TAG, "onPostExcecute parameter is $result")
+                val parseApplications = ParseApplications()
+                parseApplications.parse(result)
             }
 
             private fun downloadXML(urlPath: String?): String {
-                val xmlResult = StringBuilder()
+                /*val xmlResult = StringBuilder()
 
                 try {
                     val url = URL(urlPath)
@@ -135,8 +149,13 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
-                return "" // If it gets here, there's been a problem. Return empty string
+                return "" // If it gets here, there's been a problem. Return empty string*/
+
+                // More Idiomatic Kotlin
+                return URL(urlPath).readText()
+
             }
+
         }
 
     }
