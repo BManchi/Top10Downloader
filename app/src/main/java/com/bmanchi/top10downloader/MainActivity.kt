@@ -6,11 +6,17 @@ import android.content.Context
 import android.os.AsyncTask
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.PersistableBundle
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import android.widget.ArrayAdapter
 import android.widget.ListView
 import java.net.URL
 import kotlin.properties.Delegates
+
+private const val URL_CONTENTS = "URL contents"
+private const val LIMIT_CONTENTS = "URL limit contents"
 
 class FeedEntry {
     var name: String = ""
@@ -31,20 +37,187 @@ class FeedEntry {
 class MainActivity : AppCompatActivity() {
     private val TAG = "MainActivity"
 
-    private val downloadData: DownloadData by lazy { DownloadData(this, findViewById(R.id.xmlListView)) }
+//    private val downloadData: DownloadData by lazy { DownloadData(this, findViewById(R.id.xmlListView)) }
+    private var downloadData: DownloadData? = null
+
+    private var feedUrl: String ="http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topfreeapplications/limit=%d/xml"
+    private var feedLimit = 10
+
+    private var feedCachedUrl = "INVALIDATED"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         Log.d(TAG, "onCreate called")
-        downloadData.execute("http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topfreeapplications/limit=10/xml")
+        if (savedInstanceState != null) {
+            feedLimit = savedInstanceState.getInt(LIMIT_CONTENTS)
+            feedUrl = savedInstanceState.getString(URL_CONTENTS).toString()
+        }
+
+        downloadURL(feedUrl.format(feedLimit))
         Log.d(TAG, "onCreate done")
     }
 
+    private fun downloadURL(feedURL: String) {
+        if (feedURL != feedCachedUrl) {
+            Log.d(TAG, "downloadURL staring AsyncTask")
+            downloadData= DownloadData(this, findViewById(R.id.xmlListView))
+            downloadData?.execute(feedURL)
+            Log.d(TAG, "downloadURL done")
+            feedCachedUrl = feedURL
+        } else {
+            Log.d(TAG, "downloadURL: URL not changed")
+        }
+    }
+
+    /**
+     * Initialize the contents of the Activity's standard options menu.  You
+     * should place your menu items in to <var>menu</var>.
+     *
+     *
+     * This is only called once, the first time the options menu is
+     * displayed.  To update the menu every time it is displayed, see
+     * [.onPrepareOptionsMenu].
+     *
+     *
+     * The default implementation populates the menu with standard system
+     * menu items.  These are placed in the [Menu.CATEGORY_SYSTEM] group so that
+     * they will be correctly ordered with application-defined menu items.
+     * Deriving classes should always call through to the base implementation.
+     *
+     *
+     * You can safely hold on to <var>menu</var> (and any items created
+     * from it), making modifications to it as desired, until the next
+     * time onCreateOptionsMenu() is called.
+     *
+     *
+     * When you add items to the menu, you can implement the Activity's
+     * [.onOptionsItemSelected] method to handle them there.
+     *
+     * @param menu The options menu in which you place your items.
+     *
+     * @return You must return true for the menu to be displayed;
+     * if you return false it will not be shown.
+     *
+     * @see .onPrepareOptionsMenu
+     *
+     * @see .onOptionsItemSelected
+     */
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.feeds_menu, menu)
+
+        if (feedLimit ==10) {
+            menu?.findItem(R.id.mnu10)?.isChecked = true
+        } else {
+            menu?.findItem(R.id.mnu25)?.isChecked = true
+        }
+        return true
+    }
+
+    /**
+     * This hook is called whenever an item in your options menu is selected.
+     * The default implementation simply returns false to have the normal
+     * processing happen (calling the item's Runnable or sending a message to
+     * its Handler as appropriate).  You can use this method for any items
+     * for which you would like to do processing without those other
+     * facilities.
+     *
+     *
+     * Derived classes should call through to the base class for it to
+     * perform the default menu handling.
+     *
+     * @param item The menu item that was selected.
+     *
+     * @return boolean Return false to allow normal menu processing to
+     * proceed, true to consume it here.
+     *
+     * @see .onCreateOptionsMenu
+     */
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+
+        when (item.itemId) {
+            R.id.mnuFree ->
+                feedUrl = "http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topfreeapplications/limit=%d/xml"
+            R.id.mnuPaid ->
+                feedUrl = "http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/toppaidapplications/limit=%d/xml"
+            R.id.mnuSongs ->
+                feedUrl = "http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topsongs/limit=%d/xml"
+            R.id.mnu10, R.id.mnu25 -> {
+                if  (!item.isChecked) {
+                    item.isChecked = true
+                    feedLimit =35 - feedLimit
+                    Log.d(TAG, "onOptionsItemsSelected: ${item.title} setting feedLimit to ${feedLimit}")
+                } else {
+                    Log.d(TAG, "onOptionsItemsSelected: ${item.title} setting feedLimit unchanged")
+                }
+            }
+            R.id.mnuRefresh -> feedCachedUrl = "INVALIDATED"
+            else ->
+                return super.onOptionsItemSelected(item)
+        }
+
+        downloadURL(feedUrl.format(feedLimit))
+        return true
+    }
+
+    /**
+     * This method is called after [.onStart] when the activity is
+     * being re-initialized from a previously saved state, given here in
+     * <var>savedInstanceState</var>.  Most implementations will simply use [.onCreate]
+     * to restore their state, but it is sometimes convenient to do it here
+     * after all of the initialization has been done or to allow subclasses to
+     * decide whether to use your default implementation.  The default
+     * implementation of this method performs a restore of any view state that
+     * had previously been frozen by [.onSaveInstanceState].
+     *
+     *
+     * This method is called between [.onStart] and
+     * [.onPostCreate]. This method is called only when recreating
+     * an activity; the method isn't invoked if [.onStart] is called for
+     * any other reason.
+     *
+     * @param savedInstanceState the data most recently supplied in [.onSaveInstanceState].
+     *
+     * @see .onCreate
+     *
+     * @see .onPostCreate
+     *
+     * @see .onResume
+     *
+     * @see .onSaveInstanceState
+     */
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        feedLimit = savedInstanceState.getInt(LIMIT_CONTENTS)
+        feedUrl = savedInstanceState.getString(URL_CONTENTS).toString()
+
+    }
+
+    /**
+     * This is the same as [.onSaveInstanceState] but is called for activities
+     * created with the attribute [android.R.attr.persistableMode] set to
+     * `persistAcrossReboots`. The [android.os.PersistableBundle] passed
+     * in will be saved and presented in [.onCreate]
+     * the first time that this activity is restarted following the next device reboot.
+     *
+     * @param outState Bundle in which to place your saved state.
+     * @param outPersistentState State which will be saved across reboots.
+     *
+     * @see .onSaveInstanceState
+     * @see .onCreate
+     *
+     * @see .onRestoreInstanceState
+     * @see .onPause
+     */
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(URL_CONTENTS, feedUrl)
+        outState.putInt(LIMIT_CONTENTS, feedLimit)
+    }
     override fun onDestroy() {
         super.onDestroy()
-        downloadData.cancel(true)
+        downloadData?.cancel(true)
     }
 
     companion object {
@@ -81,7 +254,7 @@ class MainActivity : AppCompatActivity() {
              * @see .publishProgress
              */
             override fun doInBackground(vararg url: String?): String {
-                Log.d(TAG, "doInBackground: starts with ${url[0]}")
+//                Log.d(TAG, "doInBackground: starts with ${url[0]}")
                 val rssFeed = downloadXML(url[0])
                 if (rssFeed.isEmpty()) {
                     Log.e(TAG, "doInBackground: Error downloading")
@@ -186,6 +359,4 @@ class MainActivity : AppCompatActivity() {
         }
 
     }
-
-
 }
