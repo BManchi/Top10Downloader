@@ -2,19 +2,16 @@
 
 package com.bmanchi.top10downloader
 
-import android.content.Context
-import android.os.AsyncTask
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.os.PersistableBundle
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
-import android.widget.ArrayAdapter
-import android.widget.ListView
-import java.net.URL
-import kotlin.properties.Delegates
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProviders
+import kotlinx.android.synthetic.main.activity_main.*
 
+private const val TAG = "MainActivity"
 private const val URL_CONTENTS = "URL contents"
 private const val LIMIT_CONTENTS = "URL limit contents"
 
@@ -25,51 +22,62 @@ class FeedEntry {
     var summary: String = ""
     var imageURL: String = ""
 
-    override fun toString(): String {
-        return """
-            name = " $name
-            artist = $artist
-            releaseDate = $releaseDate
-            imageURL = $imageURL
-        """.trimIndent()
-    }
+//    override fun toString(): String {
+//        return """
+//            name = " $name
+//            artist = $artist
+//            releaseDate = $releaseDate
+//            imageURL = $imageURL
+//        """.trimIndent()
+//    }
 }
 class MainActivity : AppCompatActivity() {
-    private val TAG = "MainActivity"
+
 
 //    private val downloadData: DownloadData by lazy { DownloadData(this, findViewById(R.id.xmlListView)) }
-    private var downloadData: DownloadData? = null
+//
+//    Moved to FeedViewModel
+//    private var downloadData: DownloadData? = null
+
+//    private var feedCachedUrl = "INVALIDATED"
 
     private var feedUrl: String ="http://ax.itunes.apple.com/WebObjects/MZStoreServices.woa/ws/RSS/topfreeapplications/limit=%d/xml"
     private var feedLimit = 10
 
-    private var feedCachedUrl = "INVALIDATED"
+    private val feedViewModel by lazy { ViewModelProviders.of(this).get(FeedViewModel::class.java)}
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         Log.d(TAG, "onCreate called")
+
+        val feedAdapter = FeedAdapter(this, R.layout.list_record, EMPTY_FEED_LIST)
+        xmlListView.adapter = feedAdapter
+
         if (savedInstanceState != null) {
             feedLimit = savedInstanceState.getInt(LIMIT_CONTENTS)
             feedUrl = savedInstanceState.getString(URL_CONTENTS).toString()
         }
 
-        downloadURL(feedUrl.format(feedLimit))
+
+        feedViewModel.feedEntries.observe(this,
+        Observer < List<FeedEntry>> { feedEntries -> feedAdapter.setFeedList(feedEntries ?: EMPTY_FEED_LIST) })
+
+        feedViewModel.downloadURL(feedUrl.format(feedLimit))
         Log.d(TAG, "onCreate done")
     }
-
-    private fun downloadURL(feedURL: String) {
-        if (feedURL != feedCachedUrl) {
-            Log.d(TAG, "downloadURL staring AsyncTask")
-            downloadData= DownloadData(this, findViewById(R.id.xmlListView))
-            downloadData?.execute(feedURL)
-            Log.d(TAG, "downloadURL done")
-            feedCachedUrl = feedURL
-        } else {
-            Log.d(TAG, "downloadURL: URL not changed")
-        }
-    }
+//    private fun downloadURL(feedURL: String) {
+//        if (feedURL != feedCachedUrl) {
+//            Log.d(TAG, "downloadURL staring AsyncTask")
+//            downloadData= DownloadData(this, findViewById(R.id.xmlListView))
+//            downloadData?.execute(feedURL)
+//            Log.d(TAG, "downloadURL done")
+//            feedCachedUrl = feedURL
+//        } else {
+//            Log.d(TAG, "downloadURL: URL not changed")
+//        }
+//    }
 
     /**
      * Initialize the contents of the Activity's standard options menu.  You
@@ -152,12 +160,12 @@ class MainActivity : AppCompatActivity() {
                     Log.d(TAG, "onOptionsItemsSelected: ${item.title} setting feedLimit unchanged")
                 }
             }
-            R.id.mnuRefresh -> feedCachedUrl = "INVALIDATED"
+            R.id.mnuRefresh -> feedViewModel.invalidate()
             else ->
                 return super.onOptionsItemSelected(item)
         }
 
-        downloadURL(feedUrl.format(feedLimit))
+        feedViewModel.downloadURL(feedUrl.format(feedLimit))
         return true
     }
 
@@ -215,13 +223,13 @@ class MainActivity : AppCompatActivity() {
         outState.putString(URL_CONTENTS, feedUrl)
         outState.putInt(LIMIT_CONTENTS, feedLimit)
     }
-    override fun onDestroy() {
-        super.onDestroy()
-        downloadData?.cancel(true)
-    }
+//    override fun onDestroy() {
+//        super.onDestroy()
+//        downloadData?.cancel(true)
+//    }
 
     companion object {
-        private class DownloadData(context: Context, listView: ListView) : AsyncTask<String, Void, String>() {
+        /*private class DownloadData(context: Context, listView: ListView) : AsyncTask<String, Void, String>() {
             private val TAG = "DownloadData"
 
             var propContext: Context by Delegates.notNull()
@@ -232,7 +240,7 @@ class MainActivity : AppCompatActivity() {
                 propListView = listView
             }
 
-            /**
+            *//**
              * Override this method to perform a computation on a background thread. The
              * specified parameters are the parameters passed to [.execute]
              * by the caller of this task.
@@ -252,7 +260,7 @@ class MainActivity : AppCompatActivity() {
              * @see .onPostExecute
              *
              * @see .publishProgress
-             */
+             *//*
             override fun doInBackground(vararg url: String?): String {
 //                Log.d(TAG, "doInBackground: starts with ${url[0]}")
                 val rssFeed = downloadXML(url[0])
@@ -262,7 +270,7 @@ class MainActivity : AppCompatActivity() {
                 return rssFeed
             }
 
-            /**
+            *//**
              *
              * Runs on the UI thread after [.doInBackground]. The
              * specified result is the value returned by [.doInBackground].
@@ -280,16 +288,16 @@ class MainActivity : AppCompatActivity() {
              * @see .doInBackground
              *
              * @see .onCancelled
-             */
+             *//*
             override fun onPostExecute(result: String) {
                 super.onPostExecute(result)
 //                Log.d(TAG, "onPostExcecute parameter is $result")
                 val parseApplications = ParseApplications()
                 parseApplications.parse(result)
 
-               /* // Old adapter
+               *//* // Old adapter
                 val arrayAdapter = ArrayAdapter<FeedEntry>(propContext, R.layout.list_item, parseApplications.applications)
-                propListView.adapter = arrayAdapter*/
+                propListView.adapter = arrayAdapter*//*
 
                 // New custom adapter
                 val feedAdapter = FeedAdapter(propContext, R.layout.list_record, parseApplications.applications)
@@ -297,7 +305,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             private fun downloadXML(urlPath: String?): String {
-                /*val xmlResult = StringBuilder()
+                *//*val xmlResult = StringBuilder()
 
                 try {
                     val url = URL(urlPath)
@@ -349,14 +357,14 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
-                return "" // If it gets here, there's been a problem. Return empty string*/
+                return "" // If it gets here, there's been a problem. Return empty string*//*
 
                 // More Idiomatic Kotlin
                 return URL(urlPath).readText()
 
             }
 
-        }
+        }*/
 
     }
 }
